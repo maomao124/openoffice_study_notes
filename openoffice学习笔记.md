@@ -325,7 +325,7 @@ netstat -ano
 
 
 
-## 使用
+## docx转pdf
 
 ### 第一步：创建Springboot程序
 
@@ -560,6 +560,22 @@ test.docx内容如下：
 
 
 
+运行单元测试，日志输出如下：
+
+```sh
+2023-11-22 21:55:57.635  INFO 13336 --- [er-offprocmng-0] o.j.l.office.LocalOfficeProcessManager   : Starting process with --accept 'socket,host=127.0.0.1,port=8100,tcpNoDelay=1;urp;StarOffice.ServiceManager' and profileDir 'C:\Users\mao\AppData\Local\Temp\.jodconverter_socket_host-127.0.0.1_port-8100_tcpNoDelay-1'
+2023-11-22 21:55:58.281  INFO 13336 --- [er-offprocmng-0] o.j.local.office.OfficeConnection        : Connected: 'socket,host=127.0.0.1,port=8100,tcpNoDelay=1'
+2023-11-22 21:55:58.281  INFO 13336 --- [er-offprocmng-0] o.j.l.office.LocalOfficeProcessManager   : Started process; pid: 35016
+2023-11-22 21:55:58.282  INFO 13336 --- [ter-poolentry-1] o.j.local.task.LocalConversionTask       : Executing local conversion task [docx -> pdf]...
+```
+
+
+
+
+
+输出的PDF文件如下：
+
+![image-20231122215730504](img/openoffice学习笔记/image-20231122215730504.png)
 
 
 
@@ -567,6 +583,296 @@ test.docx内容如下：
 
 
 
+
+
+
+
+文件流转换示例：
+
+```java
+DocumentFormat documentFormatSrc = documentConverter.getFormatRegistry().getFormatByExtension("docx");
+        DocumentFormat documentFormatTarget = documentConverter.getFormatRegistry().getFormatByExtension("pdf");
+        documentConverter.convert(
+                new FileInputStream(new File("./test.docx")))
+                .as(documentFormatSrc)
+                .to(new FileOutputStream("./test.pdf"))
+                .as(documentFormatTarget).execute();
+```
+
+
+
+
+
+
+
+### 第六步：编写文档转换服务
+
+```java
+package mao.openofficewordtopdf.service;
+
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf
+ * Package(包名): mao.openofficewordtopdf.service
+ * Interface(接口名): DocumentConverterService
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/23
+ * Time(创建时间)： 8:49
+ * Version(版本): 1.0
+ * Description(描述)： 文档转换服务
+ */
+
+public interface DocumentConverterService
+{
+
+    /**
+     * 文档转换
+     *
+     * @param sourcePath 来源路径字符串
+     * @param targetPath 目标路径字符串
+     */
+    void converter(String sourcePath, String targetPath);
+
+    /**
+     * 文档转换
+     *
+     * @param sourcePath 来源路径
+     * @param targetPath 目标路径
+     */
+    void converter(File sourcePath, File targetPath);
+
+    /**
+     * 文档转换
+     *
+     * @param inputStream      输入流
+     * @param outputStream     输出流
+     * @param sourceFileSuffix 源文件后缀
+     * @param targetFileSuffix 目标文件后缀
+     */
+    void converter(InputStream inputStream, OutputStream outputStream,
+                   String sourceFileSuffix, String targetFileSuffix);
+}
+```
+
+
+
+
+
+### 第七步：编写服务实现类
+
+```java
+package mao.openofficewordtopdf.service.impl;
+
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import mao.openofficewordtopdf.service.DocumentConverterService;
+import org.jodconverter.core.DocumentConverter;
+import org.jodconverter.core.document.DocumentFormat;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf
+ * Package(包名): mao.openofficewordtopdf.service.impl
+ * Class(类名): DocumentConverterServiceImpl
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/23
+ * Time(创建时间)： 8:50
+ * Version(版本): 1.0
+ * Description(描述)： 文档转换服务实现
+ */
+
+@Slf4j
+@Service
+public class DocumentConverterServiceImpl implements DocumentConverterService
+{
+
+    @Autowired
+    private DocumentConverter documentConverter;
+
+    @SneakyThrows
+    @Override
+    public void converter(String sourcePath, String targetPath)
+    {
+        documentConverter.convert(new File(sourcePath)).to(new File(targetPath)).execute();
+    }
+
+    @SneakyThrows
+    @Override
+    public void converter(File sourcePath, File targetPath)
+    {
+        documentConverter.convert(sourcePath).to(targetPath).execute();
+    }
+
+    @SneakyThrows
+    @Override
+    public void converter(InputStream inputStream, OutputStream outputStream, String sourceFileSuffix, String targetFileSuffix)
+    {
+        DocumentFormat sourceDocumentFormat = documentConverter.getFormatRegistry()
+                .getFormatByExtension(sourceFileSuffix);
+        DocumentFormat targetDocumentFormat = documentConverter.getFormatRegistry()
+                .getFormatByExtension(targetFileSuffix);
+        documentConverter
+                .convert(inputStream)
+                .as(sourceDocumentFormat)
+                .to(outputStream)
+                .as(targetDocumentFormat)
+                .execute();
+    }
+}
+```
+
+
+
+
+
+该实现类的单元测试如下：
+
+```java
+package mao.openofficewordtopdf.service.impl;
+
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf
+ * Package(包名): mao.openofficewordtopdf.service.impl
+ * Class(测试类名): DocumentConverterServiceImplTest
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/23
+ * Time(创建时间)： 9:03
+ * Version(版本): 1.0
+ * Description(描述)： 测试类
+ */
+
+@SpringBootTest
+class DocumentConverterServiceImplTest
+{
+    @Autowired
+    private DocumentConverterServiceImpl documentConverterService;
+
+    @Test
+    void converter()
+    {
+        documentConverterService.converter("./test.docx", "./test4.html");
+    }
+
+    @Test
+    void testConverter()
+    {
+        documentConverterService.converter(new File("./test.docx"), new File("./test5.pdf"));
+    }
+
+    @SneakyThrows
+    @Test
+    void testConverter1()
+    {
+        documentConverterService.converter(new FileInputStream("./test.ppt")
+                , new FileOutputStream("./test6.pdf")
+                , "ppt", "pdf");
+    }
+}
+```
+
+
+
+经测试，一切正常
+
+
+
+
+
+### 第八步：编写接口
+
+```java
+package mao.openofficewordtopdf.controller;
+
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import mao.openofficewordtopdf.service.DocumentConverterService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf
+ * Package(包名): mao.openofficewordtopdf.controller
+ * Class(类名): DocumentConverterController
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/23
+ * Time(创建时间)： 9:13
+ * Version(版本): 1.0
+ * Description(描述)： 无
+ */
+
+@Slf4j
+@Controller
+@RequestMapping("/api")
+public class DocumentConverterController
+{
+
+    @Autowired
+    private DocumentConverterService documentConverterService;
+
+    /**
+     * 文档转换接口
+     *
+     * @param httpServletResponse HttpServletResponse对象
+     * @param sourceFileSuffix    源文件后缀
+     * @param targetFileSuffix    目标文件后缀
+     */
+    @SneakyThrows
+    @PostMapping("/converter/{sourceFileSuffix}/{targetFileSuffix}")
+    public void converter(HttpServletResponse httpServletResponse,
+                          @PathVariable String sourceFileSuffix,
+                          @PathVariable String targetFileSuffix,
+                          MultipartFile file)
+    {
+        String originalFilename = file.getOriginalFilename();
+        log.info(originalFilename);
+        String[] split = originalFilename.split("\\.");
+        //类型有问题
+        httpServletResponse.setContentType("application/" + targetFileSuffix);
+        httpServletResponse.setHeader("Content-disposition",
+                "attachment;filename=" + new String((split[0] + "." + targetFileSuffix)
+                        .getBytes("utf-8"), "iso-8859-1"));
+        documentConverterService.converter(file.getInputStream(),
+                httpServletResponse.getOutputStream(),
+                sourceFileSuffix,
+                targetFileSuffix);
+    }
+}
+
+```
 
 
 
@@ -589,6 +895,136 @@ test.docx内容如下：
 ## 概述
 
 
+
+
+
+
+
+
+
+## docx转pdf
+
+### 第一步：新建maven项目
+
+![image-20231123104358567](img/openoffice学习笔记/image-20231123104358567.png)
+
+
+
+
+
+这里项目名称为`openoffice-word-to-pdf2`
+
+
+
+
+
+### 第二步：配置maven
+
+依赖如下：
+
+```xml
+<dependencies>
+        <dependency>
+            <groupId>org.openoffice</groupId>
+            <artifactId>juh</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openoffice</groupId>
+            <artifactId>jurt</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openoffice</groupId>
+            <artifactId>ridl</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openoffice</groupId>
+            <artifactId>unoil</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.artofsolving</groupId>
+            <artifactId>jodconverter</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+    </dependencies>
+```
+
+
+
+jodconverter需要单独下载，因为中央仓库里没有
+
+![image-20231123104545185](img/openoffice学习笔记/image-20231123104545185.png)
+
+
+
+
+
+下载地址：https://sourceforge.net/projects/jodconverter/files/
+
+
+
+![image-20231123104624984](img/openoffice学习笔记/image-20231123104624984.png)
+
+
+
+![image-20231123104633790](img/openoffice学习笔记/image-20231123104633790.png)
+
+
+
+点击2.2.2版本
+
+![image-20231123104654141](img/openoffice学习笔记/image-20231123104654141.png)
+
+
+
+下载：[jodconverter-2.2.2.zip](https://sourceforge.net/projects/jodconverter/files/JODConverter/2.2.2/jodconverter-2.2.2.zip/download)
+
+
+
+下载完成后，解压，可以得到这样的目录：
+
+![image-20231123104806112](img/openoffice学习笔记/image-20231123104806112.png)
+
+
+
+
+
+在lib目录下运行：
+
+```sh
+mvn install:install-file -Dfile="jodconverter-2.2.2.jar" -DgroupId=com.artofsolving -DartifactId=jodconverter -Dversion=2.2.2 -Dpackaging=jar
+```
+
+
+
+
+
+或者将lib目录拷贝到项目目录下
+
+![image-20231123105254900](img/openoffice学习笔记/image-20231123105254900.png)
+
+
+
+然后再打开项目结构
+
+![image-20231123105318118](img/openoffice学习笔记/image-20231123105318118.png)
+
+
+
+选择库
+
+![image-20231123105407924](img/openoffice学习笔记/image-20231123105407924.png)
+
+
+
+点击新建，选择lib包目录
+
+![image-20231123105444088](img/openoffice学习笔记/image-20231123105444088.png)
+
+![image-20231123105456354](img/openoffice学习笔记/image-20231123105456354.png)
 
 
 
