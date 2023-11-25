@@ -16,6 +16,419 @@
 
 # 概述
 
+公司有一个需求，需要处理word文件，再将word文件转换成pdf文件响应给用户，服务器是Linux服务器，代码是跑在Linux上的，有些转pdf的技术只能跑在Windows平台上。
+
+关于Word转PDF网上能找到的方案大概有六七种，其中5种如下：
+
+* aspose-words
+* docx4j
+* openoffice
+* poi
+* spire.doc
+
+
+
+
+
+## aspose-words
+
+Aspose公司旗下的最全的一套office文档管理方案，公司设在澳大利亚。
+
+公司差不多是专做各种文件格式处理插件的，产品系列挺多
+
+官网：https://www.aspose.com/
+
+不需要依赖任何组件，不依赖操作系统。
+
+收费，不考虑
+
+```xml
+<dependency>
+    <groupId>com.aspose</groupId>
+    <artifactId>aspose-words</artifactId>
+    <version>22.11</version>
+    <classifier>jdk17</classifier>
+</dependency>
+```
+
+
+
+
+
+
+
+
+
+## poi
+
+大名鼎鼎的apache的开源组件，应用非常广泛
+
+官网：https://poi.apache.org/
+
+组件拆分较细，引用一些类库，但都问题不大，不依赖操作系统，经常被用于excel文档处理
+
+
+
+
+
+## OpenOffice
+
+Apache旗下又一开源组件，前身是1998年一家德国公司StarDivision所研发出来的一个办公室软件，称之为StarOffice。1999年8月被sun公司收购。2010年团队成员分家，分出来的一批成立了新团队做一个LibreOffice。2011年6月Oracle将其捐赠给Apache基金会
+
+OpenOffice本身就是一套Office软件，该方案需要使用jodconverter组件配合OpenOffice完成转换，推荐使用此方案
+
+
+
+jodconverter：https://sourceforge.net/projects/jodconverter/files/
+
+
+
+
+
+## spire.doc
+
+收费，用公司名和邮箱可以申请一个月的试用license，不考虑
+
+
+
+
+
+## docx4j
+
+澳大利亚一公司赞助的开源组件
+
+有一个开源版，还有一个Docx4j Enterprise Edition，开源版转换效果不行，表格严重错位，与原版格式严重失真
+
+不依赖其它组件，不依赖操作系统
+
+官网：https://www.docx4java.org/
+
+
+
+
+
+## 其它方案
+
+### IText
+
+IText是直接操作PDF的，不是docx转pdf，而且java API非常难用
+
+```xml
+<dependency>
+   <groupId>com.lowagie</groupId>
+   <artifactId>itext</artifactId>
+   <version>4.2.2</version>
+</dependency>
+```
+
+
+
+
+
+### document4j
+
+document4j是依赖于office软件，Linux无法使用
+
+
+
+
+
+
+
+
+
+# docx4j实现
+
+## 使用
+
+
+
+创建项目：
+
+![image-20231125180307179](img/openoffice学习笔记/image-20231125180307179.png)
+
+
+
+
+
+pom文件依赖如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.1</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>mao</groupId>
+    <artifactId>docx4j-word-to-pdf</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>docx4j-word-to-pdf</name>
+    <description>docx4j-word-to-pdf</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-JAXB-Internal</artifactId>
+            <version>8.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
+            <version>8.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-export-fo</artifactId>
+            <version>8.3.1</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+```
+
+
+
+
+
+编写工具类：
+
+```java
+package mao.docx4jwordtopdf.utils;
+
+import org.apache.commons.compress.utils.IOUtils;
+import org.docx4j.Docx4J;
+import org.docx4j.fonts.IdentityPlusMapper;
+import org.docx4j.fonts.Mapper;
+import org.docx4j.fonts.PhysicalFont;
+import org.docx4j.fonts.PhysicalFonts;
+import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.UUID;
+
+/**
+ * Project name(项目名称)：docx4j-word-to-pdf
+ * Package(包名): mao.docx4jwordtopdf.utils
+ * Class(类名): DocxToPdfUtils
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/25
+ * Time(创建时间)： 18:06
+ * Version(版本): 1.0
+ * Description(描述)： docx转pdf
+ */
+
+public class DocxToPdfUtils
+{
+    private static final Logger log = LoggerFactory.getLogger(DocxToPdfUtils.class);
+
+
+    /**
+     * docx转pdf
+     *
+     * @param docxPath docx文件路径
+     * @param pdfPath  pdf文件路径
+     * @throws Exception 异常
+     */
+    public static void convertDocxToPdf(String docxPath, String pdfPath) throws Exception
+    {
+
+        FileOutputStream fileOutputStream = null;
+        try
+        {
+            File file = new File(docxPath);
+            fileOutputStream = new FileOutputStream(new File(pdfPath));
+            WordprocessingMLPackage mlPackage = WordprocessingMLPackage.load(file);
+            setFontMapper(mlPackage);
+            Docx4J.toPDF(mlPackage, new FileOutputStream(new File(pdfPath)));
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            log.error("docx文档转换为PDF失败");
+        }
+        finally
+        {
+            IOUtils.closeQuietly(fileOutputStream);
+        }
+    }
+
+    /**
+     * 加载字体文件（解决linux环境下无中文字体问题）
+     *
+     * @param mlPackage {@link WordprocessingMLPackage}
+     * @throws Exception 异常
+     */
+    private static void setFontMapper(WordprocessingMLPackage mlPackage) throws Exception
+    {
+        Mapper fontMapper = new IdentityPlusMapper();
+        //加载字体文件（解决linux环境下无中文字体问题）
+        if (PhysicalFonts.get("SimSun") == null)
+        {
+            System.out.println("加载本地SimSun字体库");
+            //PhysicalFonts.addPhysicalFonts("SimSun", WordUtils.class.getResource("/fonts/SIMSUN.TTC"));
+        }
+        fontMapper.put("隶书", PhysicalFonts.get("LiSu"));
+        fontMapper.put("宋体", PhysicalFonts.get("SimSun"));
+        fontMapper.put("微软雅黑", PhysicalFonts.get("Microsoft Yahei"));
+        fontMapper.put("黑体", PhysicalFonts.get("SimHei"));
+        fontMapper.put("楷体", PhysicalFonts.get("KaiTi"));
+        fontMapper.put("新宋体", PhysicalFonts.get("NSimSun"));
+        fontMapper.put("华文行楷", PhysicalFonts.get("STXingkai"));
+        fontMapper.put("华文仿宋", PhysicalFonts.get("STFangsong"));
+        fontMapper.put("仿宋", PhysicalFonts.get("FangSong"));
+        fontMapper.put("幼圆", PhysicalFonts.get("YouYuan"));
+        fontMapper.put("华文宋体", PhysicalFonts.get("STSong"));
+        fontMapper.put("华文中宋", PhysicalFonts.get("STZhongsong"));
+        fontMapper.put("等线", PhysicalFonts.get("SimSun"));
+        fontMapper.put("等线 Light", PhysicalFonts.get("SimSun"));
+        fontMapper.put("华文琥珀", PhysicalFonts.get("STHupo"));
+        fontMapper.put("华文隶书", PhysicalFonts.get("STLiti"));
+        fontMapper.put("华文新魏", PhysicalFonts.get("STXinwei"));
+        fontMapper.put("华文彩云", PhysicalFonts.get("STCaiyun"));
+        fontMapper.put("方正姚体", PhysicalFonts.get("FZYaoti"));
+        fontMapper.put("方正舒体", PhysicalFonts.get("FZShuTi"));
+        fontMapper.put("华文细黑", PhysicalFonts.get("STXihei"));
+        fontMapper.put("宋体扩展", PhysicalFonts.get("simsun-extB"));
+        fontMapper.put("仿宋_GB2312", PhysicalFonts.get("FangSong_GB2312"));
+        fontMapper.put("新細明體", PhysicalFonts.get("SimSun"));
+        //解决宋体（正文）和宋体（标题）的乱码问题
+        PhysicalFonts.put("PMingLiU", PhysicalFonts.get("SimSun"));
+        PhysicalFonts.put("新細明體", PhysicalFonts.get("SimSun"));
+        //宋体&新宋体
+        PhysicalFont simsunFont = PhysicalFonts.get("SimSun");
+        fontMapper.put("SimSun", simsunFont);
+        //设置字体
+        mlPackage.setFontMapper(fontMapper);
+    }
+}
+```
+
+
+
+
+
+编写单元测试：
+
+```java
+package mao.docx4jwordtopdf.utils;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Project name(项目名称)：docx4j-word-to-pdf
+ * Package(包名): mao.docx4jwordtopdf.utils
+ * Class(测试类名): DocxToPdfUtilsTest
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/25
+ * Time(创建时间)： 18:14
+ * Version(版本): 1.0
+ * Description(描述)： 测试类
+ */
+
+class DocxToPdfUtilsTest
+{
+
+    @Test
+    void convertDocxToPdf() throws Exception
+    {
+        DocxToPdfUtils.convertDocxToPdf("./test.docx","./test.pdf");
+    }
+
+    @Test
+    void convertDocxToPdf2() throws Exception
+    {
+        //相对复杂的docx
+        DocxToPdfUtils.convertDocxToPdf("./out.docx","./out.pdf");
+    }
+}
+```
+
+
+
+
+
+test.docx内容如下：
+
+![image-20231125182204431](img/openoffice学习笔记/image-20231125182204431.png)
+
+
+
+
+
+运行
+
+![image-20231125182216678](img/openoffice学习笔记/image-20231125182216678.png)
+
+
+
+
+
+test.pdf输出结果如下：
+
+![image-20231125182300479](img/openoffice学习笔记/image-20231125182300479.png)
+
+
+
+
+
+## 结论
+
+test.pdf目前没什么大问题，字体和格式有点问题，但是out.pdf就乱了，因为out.docx是公司的合同文档，这里就不放出结果了，而且输出太慢了，CPU占用较高，会拖垮服务器的，不考虑
+
+
+
+
+
+
+
+# poi实现
+
+## 使用
+
+
+
+
+
 
 
 
@@ -32,7 +445,11 @@
 
 ## 概述
 
+OpenOffice.org 是一套跨平台的办公室软件套件，能在 Windows、Linux、MacOS X (X11)、和 Solaris 等操作系统上执行。它与各个主要的办公室软件套件兼容。OpenOffice.org 是开源软件，任何人都可以免费下载、使用、及推广它。
 
+OpenOffice.org 的主要模块有 Writer (文本文档)/Calc (电子表格)/Impress (演示文稿)/Math (公式计算)/Draw (画图)/Base (数据库)
+
+OpenOffice.org 不仅是六大组件的组合，而且与同类产品不同的是，本套件不是独立软件模块形式创建的，从一开始，它就被设计成一个完整的办公软件包
 
 
 
@@ -262,6 +679,12 @@ netstat -ano
 打开任务管理器，可以看到46984的确为openoffice
 
 
+
+
+
+#### 第六步：安装中文语言包
+
+如果下载的openoffice本来就是中文的，则没有必要再安装，可以跳过此步骤
 
 
 
@@ -878,6 +1301,105 @@ public class DocumentConverterController
 
 
 
+### 第九步：编写简单前端页面
+
+
+
+```html
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>文档转换服务</title>
+</head>
+<body>
+<form id="from" enctype="multipart/form-data" onsubmit="return check()" method="post" action="/api/converter/docx/pdf">
+    <input type="file" name="file">
+    <input type="submit" name="提交">
+</form>
+
+<br>
+<input id="p1" type="text" placeholder="输入的文件后缀名">
+<br>
+<input id="p2" type="text" placeholder="输出的文件后缀名">
+
+<script>
+
+    function check()
+    {
+        var from = document.getElementById("from")
+        var p1 = document.getElementById("p1").value
+        var p2 = document.getElementById("p2").value
+        from.action = '/api/converter/' + p1 + '/' + p2;
+        return true;
+    }
+</script>
+</body>
+</html>
+```
+
+
+
+
+
+
+
+### 第十步：启动项目测试
+
+```sh
+2023-11-24 23:25:43.069  INFO 38168 --- [           main] m.o.OpenofficeWordToPdfApplication       : Starting OpenofficeWordToPdfApplication using Java 1.8.0_332 on mao with PID 38168 (D:\程序\2023Q4\openoffice-word-to-pdf\target\classes started by mao in D:\程序\2023Q4\openoffice-word-to-pdf)
+2023-11-24 23:25:43.071  INFO 38168 --- [           main] m.o.OpenofficeWordToPdfApplication       : No active profile set, falling back to 1 default profile: "default"
+2023-11-24 23:25:43.441  INFO 38168 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8090 (http)
+2023-11-24 23:25:43.444  INFO 38168 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2023-11-24 23:25:43.445  INFO 38168 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.64]
+2023-11-24 23:25:43.481  INFO 38168 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2023-11-24 23:25:43.481  INFO 38168 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 391 ms
+2023-11-24 23:25:43.639  INFO 38168 --- [er-offprocmng-0] o.j.local.office.OfficeDescriptor        : soffice info (from exec path): Product: OpenOffice - Version: ??? - useLongOptionNameGnuStyle: false
+2023-11-24 23:25:43.725  INFO 38168 --- [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2023-11-24 23:25:43.777  INFO 38168 --- [er-offprocmng-0] o.j.l.office.LocalOfficeProcessManager   : Starting process with --accept 'socket,host=127.0.0.1,port=8100,tcpNoDelay=1;urp;StarOffice.ServiceManager' and profileDir 'C:\Users\mao\AppData\Local\Temp\.jodconverter_socket_host-127.0.0.1_port-8100_tcpNoDelay-1'
+2023-11-24 23:25:43.785  INFO 38168 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8090 (http) with context path ''
+2023-11-24 23:25:43.789  INFO 38168 --- [           main] m.o.OpenofficeWordToPdfApplication       : Started OpenofficeWordToPdfApplication in 0.889 seconds (JVM running for 1.419)
+2023-11-24 23:25:44.456  INFO 38168 --- [er-offprocmng-0] o.j.local.office.OfficeConnection        : Connected: 'socket,host=127.0.0.1,port=8100,tcpNoDelay=1'
+2023-11-24 23:25:44.457  INFO 38168 --- [er-offprocmng-0] o.j.l.office.LocalOfficeProcessManager   : Started process; pid: 10832
+```
+
+
+
+访问：http://localhost:8090/
+
+
+
+选择文件名测试
+
+![image-20231124232659774](img/openoffice学习笔记/image-20231124232659774.png)
+
+
+
+![image-20231124232714865](img/openoffice学习笔记/image-20231124232714865.png)
+
+
+
+
+
+转换无问题
+
+![image-20231124232756001](img/openoffice学习笔记/image-20231124232756001.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -894,7 +1416,7 @@ public class DocumentConverterController
 
 ## 概述
 
-
+并不是所有的项目都是springboot项目，下面将不使用springboot项目来调用openoffice服务
 
 
 
@@ -1025,6 +1547,318 @@ mvn install:install-file -Dfile="jodconverter-2.2.2.jar" -DgroupId=com.artofsolv
 ![image-20231123105444088](img/openoffice学习笔记/image-20231123105444088.png)
 
 ![image-20231123105456354](img/openoffice学习笔记/image-20231123105456354.png)
+
+
+
+
+
+
+
+### 第三步：编写DocumentConverterUtil
+
+```java
+package mao;
+
+import com.artofsolving.jodconverter.DefaultDocumentFormatRegistry;
+import com.artofsolving.jodconverter.DocumentConverter;
+import com.artofsolving.jodconverter.DocumentFormat;
+import com.artofsolving.jodconverter.openoffice.connection.SocketOpenOfficeConnection;
+import com.artofsolving.jodconverter.openoffice.converter.StreamOpenOfficeDocumentConverter;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ConnectException;
+import java.util.Properties;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf2
+ * Package(包名): mao
+ * Class(类名): DocumentConverterUtil
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/24
+ * Time(创建时间)： 23:53
+ * Version(版本): 1.0
+ * Description(描述)： 文档转换工具
+ */
+
+public class DocumentConverterUtil
+{
+    private static SocketOpenOfficeConnection connection = null;
+
+    private static DocumentConverter documentConverter = null;
+
+    private static Properties properties = null;
+
+    private static int serviceCheckCycle;
+
+    static
+    {
+        InputStream inputStream = DocumentConverterUtil.class.getClassLoader().getResourceAsStream("conf/openoffice.properties");
+        try
+        {
+            properties = new Properties();
+            properties.load(inputStream);
+            String host = properties.getProperty("server.host");
+            Integer port = Integer.parseInt(properties.getProperty("server.port"));
+            serviceCheckCycle = Integer.parseInt(properties.getProperty("serviceCheckCycle"));
+            connection = new SocketOpenOfficeConnection(host, port);
+            connection.connect();
+            documentConverter = new StreamOpenOfficeDocumentConverter(connection);
+        }
+        catch (ConnectException e)
+        {
+            e.printStackTrace();
+            System.out.println("文档转换服务连接失败");
+            //throw new RuntimeException(e);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            System.out.println("加载配置文件失败或者其它问题");
+            //throw new RuntimeException(e);
+        }
+        finally
+        {
+            //服务检查
+            new Thread(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    while (true)
+                    {
+                        try
+                        {
+                            Thread.sleep(serviceCheckCycle);
+                            if (isNotConnection())
+                            {
+                                System.out.println("openoffice服务异常，正在尝试重连");
+                                retry();
+                            }
+                        }
+                        catch (InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }).start();
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() ->
+            {
+                if (connection.isConnected())
+                {
+                    System.out.println("正在关闭openoffice连接...");
+                    connection.disconnect();
+                }
+            }));
+        }
+    }
+
+    /**
+     * 服务重连
+     *
+     * @return 重连结果
+     */
+    public static boolean retry()
+    {
+        System.out.println("尝试重连openoffice");
+        String host = properties.getProperty("server.host");
+        Integer port = Integer.parseInt(properties.getProperty("server.port"));
+        connection = new SocketOpenOfficeConnection(host, port);
+        documentConverter = new StreamOpenOfficeDocumentConverter(connection);
+        try
+        {
+            connection.connect();
+            if (isConnection())
+            {
+                return true;
+            }
+            return false;
+        }
+        catch (Exception e)
+        {
+            System.out.println("重连失败");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 得到当前properties
+     *
+     * @return properties对象
+     */
+    public static Properties getProperties()
+    {
+        return properties;
+    }
+
+    /**
+     * 判断服务是否正常连接
+     *
+     * @return 成功连接为true
+     */
+    public static boolean isConnection()
+    {
+        if (connection == null || !connection.isConnected())
+        {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 判断服务是否没有连接
+     *
+     * @return 成功连接为false
+     */
+    public static boolean isNotConnection()
+    {
+        return !isConnection();
+    }
+
+
+    /**
+     * 文档转换
+     *
+     * @param sourcePath 源路径
+     * @param targetPath 目标路径
+     */
+    public static void converter(String sourcePath, String targetPath)
+    {
+        documentConverter.convert(new File(sourcePath), new File(targetPath));
+    }
+
+    /**
+     * 文档转换
+     *
+     * @param sourcePath 源路径
+     * @param targetPath 目标路径
+     */
+    public static void converter(File sourcePath, File targetPath)
+    {
+        documentConverter.convert(sourcePath, targetPath);
+    }
+
+    /**
+     * 文档转换
+     *
+     * @param inputStream      输入流
+     * @param outputStream     输出流
+     * @param sourceFileSuffix 源文件后缀
+     * @param targetFileSuffix 目标文件后缀
+     */
+    public static void converter(InputStream inputStream, OutputStream outputStream,
+                                 String sourceFileSuffix, String targetFileSuffix)
+    {
+        DocumentFormat sourceDocumentFormat = new DefaultDocumentFormatRegistry()
+                .getFormatByFileExtension(sourceFileSuffix);
+        DocumentFormat targetDocumentFormat = new DefaultDocumentFormatRegistry()
+                .getFormatByFileExtension(targetFileSuffix);
+        documentConverter.convert(inputStream, sourceDocumentFormat, outputStream, targetDocumentFormat);
+    }
+}
+```
+
+
+
+
+
+### 第四步：编写openoffice.properties
+
+```properties
+# openoffice服务所在地址
+server.host=127.0.0.1
+# openoffice服务端口号
+server.port=8100
+# 服务连接检查周期，单位是毫秒，600000为10分钟。如果服务连接挂了，将会尝试重新连接
+serviceCheckCycle=600000
+```
+
+
+
+配置文件位置：
+
+![image-20231125001548442](img/openoffice学习笔记/image-20231125001548442.png)
+
+
+
+
+
+### 第五步：编写测试类
+
+```java
+package mao;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+
+/**
+ * Project name(项目名称)：openoffice-word-to-pdf2
+ * Package(包名): mao
+ * Class(类名): Test
+ * Author(作者）: mao
+ * Author QQ：1296193245
+ * GitHub：https://github.com/maomao124/
+ * Date(创建日期)： 2023/11/25
+ * Time(创建时间)： 0:05
+ * Version(版本): 1.0
+ * Description(描述)： 无
+ */
+
+public class Test
+{
+    public static void main(String[] args) throws FileNotFoundException
+    {
+        DocumentConverterUtil.converter("./test.docx", "./test.pdf");
+        DocumentConverterUtil.converter("./test.docx", "./test2.pdf");
+        DocumentConverterUtil.converter("./test.docx", "./test3.pdf");
+        DocumentConverterUtil.converter(new FileInputStream("./test.docx"),
+                new FileOutputStream("./test4.pdf"),"docx","pdf");
+        System.out.println("转换完成");
+    }
+}
+```
+
+
+
+
+
+### 第六步：运行查看结果
+
+```sh
+十一月 25, 2023 12:17:56 上午 com.artofsolving.jodconverter.openoffice.connection.AbstractOpenOfficeConnection connect
+信息: connected
+转换完成
+```
+
+
+
+源文档内容：
+
+![image-20231125002042440](img/openoffice学习笔记/image-20231125002042440.png)
+
+
+
+
+
+转换后：
+
+![image-20231125002058289](img/openoffice学习笔记/image-20231125002058289.png)
+
+
+
+结果正确，性能在1秒内
+
+
+
+
 
 
 
