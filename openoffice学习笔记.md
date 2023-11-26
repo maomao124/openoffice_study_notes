@@ -1,3 +1,5 @@
+<h1 style="font-size:3em;color:skyblue;text-align:center">OpenOffice学习笔记</h1>
+
 [toc]
 
 ---
@@ -920,6 +922,116 @@ netstat -ano
 
 
 ### Linux安装
+
+以centos为例
+
+
+
+#### 第一步：下载
+
+进入下载界面：https://sourceforge.net/projects/openofficeorg.mirror/files/
+
+![image-20231126125813597](img/openoffice学习笔记/image-20231126125813597.png)
+
+
+
+
+
+![image-20231126125836831](img/openoffice学习笔记/image-20231126125836831.png)
+
+
+
+
+
+![image-20231126125955878](img/openoffice学习笔记/image-20231126125955878.png)
+
+
+
+这次选择第五个：[Apache_OpenOffice_4.1.14_Linux_x86_install-rpm_zh-CN.tar.gz](https://sourceforge.net/projects/openofficeorg.mirror/files/4.1.14/binaries/zh-CN/Apache_OpenOffice_4.1.14_Linux_x86_install-rpm_zh-CN.tar.gz/download)
+
+
+
+
+
+#### 第二步：创建文件夹
+
+连接linux服务器，在/usr/local目录下创建openoffce文件夹
+
+```sh
+cd /usr/local
+mkdir openoffice
+```
+
+
+
+
+
+#### 第三步：上传文件
+
+将刚刚下载完成的压缩包上传到linux服务器的openoffice文件夹里
+
+
+
+
+
+#### 第四步：解压文件
+
+命令：
+
+```sh
+tar  tar -zxvf Apache_OpenOffice_4.1.14_Linux_x86_install-rpm_zh-CN.tar.gz
+```
+
+
+
+
+
+#### 第五步：安装rpm文件
+
+进入`zh-CN/RPMS/`目录下安装rpm文件
+
+命令：
+
+```sh
+yum localinstall *.rpm
+```
+
+
+
+安装完后会在当前目录下生成一个desktop-integration目录
+
+
+
+进入desktop-integration目录，执行：
+
+```sh
+yum localinstall openoffice4.1.14-redhat-menus-4.1.14-9808.noarch.rpm
+```
+
+
+
+
+
+#### 第六步：启动
+
+命令：
+
+```sh
+/opt/openoffice4/program/soffice -headless -accept="socket,host=127.0.0.1,port=8100;urp;" -nofirststartwizard
+```
+
+
+
+
+
+* 如果报错：`错误：Could not find a Java Runtime Environment`，这是没有安装jdk导致的
+
+* 如果报错：`/opt/openoffice4/program/soffice.bin: error while loading shared libraries: libXext.so.6: cannot open shared object file: No such file or directory `，这是由于缺少lib库文件，执行`yum install libXext.x86_64`，然后执行`cp -a usr/lib64/libXext.so.6 /opt/openoffice4/program/`复制到openoffice目录
+
+* 如果报错：`no suitable windowing system found, exiting `，这是没有图形界面支持导致的，openoffice运行需要图形界面，执行`yum groupinstall "X Window System"`
+* 预览如果出现中文乱码、中文不显示的问题，还需要安装安装中文字体，这个问题只有在linux才会有
+
+
 
 
 
@@ -2239,4 +2351,16 @@ public class Test
 
 
 
+
+
+
+
+
+
+
+
+
+---
+
+end
 
