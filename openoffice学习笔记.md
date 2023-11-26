@@ -933,11 +933,178 @@ netstat -ano
 
 ### Docker安装
 
+#### 第一步：搜索镜像
+
+命令：
+
+```sh
+docker search openoffice
+```
+
+
+
+```sh
+PS C:\Users\mao> docker search openoffice
+NAME                                  DESCRIPTION                                      STARS     OFFICIAL   AUTOMATED
+kasmweb/openoffice                                                                     2
+rafaeltuelho/openoffice3-daemon       Openoffice 3 headless daemon Image running t…   3
+umnelevator/openoffice                                                                 4
+xiaojun207/openoffice4-daemon         Image running the OpenOffice 4 soffice daemo…   7
+expertsystems/openoffice              OpenOffice in server mode                        5                    [OK]
+upresentit/openoffice                 OpenOffice 4.1 running as service on port 81…   1
+timonier/openoffice                   The free and Open Source productivity suite      0                    [OK]
+chrisdaish/openoffice                 Unofficial build of Apache OpenOffice forwar…   0                    [OK]
+rolesle/openoffice                    Apache OpenOffice4                               0
+xzxiaoshan/openoffice                 openoffice 镜像，默认启动openoffice服务，主…    1
+cafetime/openoffice-jdk               openoffice-jdk                                   0                    [OK]
+evan11/openoffice4-java8              基于openjdk:8-jdk 集成openoffice4 部署spring…   2
+bdhhbdhh/openoffice4                  OpenOffice 4 server mode                         0
+goodrainapps/openoffice                                                                0
+kuschzzp/openoffice                   openoffice:4.1.13镜像，内置了字体，解决中文…    1
+patriciorangles/openoffice-headless   Headless de OpenOffice para OpenERP V7           0
+akiraheid/openoffice                  An office software suite for word processing…   0
+wangzhishuai/openoffice               openoffice4.1.6+jdk1.8+linux64    EXPOSE 8100    1
+xzxiaoshan/openoffice-base            OpenOffice 基础环境镜像                          0
+wjf8882300/openoffice                 用于word、excel、powerpoint转为pdf文件           0
+eliu/openoffice                       容器化启动 openoffice 并解决中文无法显示的问…   0
+safloresg/openoffice                                                                   0
+bdhhbdhh/openoffice3                  OpenOffice 3 server mode                         0
+954l/openoffice                                                                        0
+openoffice200/docker101tutorial                                                        0
+PS C:\Users\mao>
+```
+
+
+
+本次使用xiaojun207的镜像
+
+
+
+#### 第二步：拉取镜像
+
+命令：
+
+```sh
+docker pull xiaojun207/openoffice4-daemon
+```
+
+
+
+等待下载完成：
+
+![image-20231125204628293](img/openoffice学习笔记/image-20231125204628293.png)
 
 
 
 
 
+```sh
+PS C:\Users\mao> docker pull xiaojun207/openoffice4-daemon
+Using default tag: latest
+latest: Pulling from xiaojun207/openoffice4-daemon
+ab5ef0e58194: Pull complete
+b345d96ba7d9: Pull complete
+984a22aaecc3: Pull complete
+94cb19074099: Pull complete
+cc43233dd098: Pull complete
+2804181f079c: Pull complete
+235c5d6b9cf4: Pull complete
+9205c67b4251: Pull complete
+ecde98a5a60d: Pull complete
+383110ac3d5d: Pull complete
+Digest: sha256:ba9b546d8fefe4d623be319efa41735c8dd36a5c040e8f70461e2ca1ee842d62
+Status: Downloaded newer image for xiaojun207/openoffice4-daemon:latest
+docker.io/xiaojun207/openoffice4-daemon:latest
+
+What's Next?
+  View summary of image vulnerabilities and recommendations → docker scout quickview xiaojun207/openoffice4-daemon
+PS C:\Users\mao>
+```
+
+
+
+
+
+#### 第三步：查看镜像是否拉取成功
+
+命令：
+
+```sh
+docker images
+```
+
+或者：
+
+```sh
+docker images xiaojun207/openoffice4-daemon
+```
+
+
+
+```sh
+PS C:\Users\mao> docker images xiaojun207/openoffice4-daemon
+REPOSITORY                      TAG       IMAGE ID       CREATED       SIZE
+xiaojun207/openoffice4-daemon   latest    c0a14707c109   3 years ago   1.2GB
+PS C:\Users\mao>
+```
+
+
+
+
+
+#### 第四步：运行镜像
+
+命令：
+
+```sh
+docker run -d --name openoffice -p 8300:8100 -v D:/docker/openoffice:/data/ xiaojun207/openoffice4-daemon:latest
+```
+
+
+
+```sh
+PS C:\Users\mao> docker run -d --name openoffice -p 8300:8100 -v D:/docker/openoffice:/data/ xiaojun207/openoffice4-daemon:latest
+4da0e56c24da178145e531c05922ec2cd3592d88ab27ec2f4c1114f9a74dcdfa
+PS C:\Users\mao>
+```
+
+
+
+
+
+#### 第五步：查看容器是否运行
+
+命令：
+
+```sh
+docker ps
+```
+
+
+
+```sh
+PS C:\Users\mao> docker ps
+CONTAINER ID   IMAGE                                  COMMAND                   CREATED          STATUS          PORTS                    NAMES
+4da0e56c24da   xiaojun207/openoffice4-daemon:latest   "uid_entrypoint /bin…"   13 seconds ago   Up 13 seconds   0.0.0.0:8300->8100/tcp   openoffice
+619cebf9f2dd   7fff914c4a61                           "/dashboard --insecu…"   15 minutes ago   Up 15 minutes                            k8s_kubernetes-dashboard_kubernetes-dashboard-68955f84f4-ccwfd_kubernetes-dashboard_fd1c36df-d824-4d4f-a52a-a5f7152d8fa2_70
+d9aa185088d1   7801cfc6d5c0                           "/metrics-sidecar"        15 minutes ago   Up 15 minutes                            k8s_dashboard-metrics-scraper_dashboard-metrics-scraper-748b4f5b9d-g4h26_kubernetes-dashboard_b76f2aa6-e30a-40f8-b865-2a9a97796ee0_37
+PS C:\Users\mao>
+```
+
+
+
+第一个为openoffice，状态是up，则为启动成功，外部端口为8300，第二个和第三个为k8s
+
+
+
+日志如下：
+
+```sh
+PS C:\Users\mao> docker logs openoffice
+Starting soffice daemon in headless mode as user default [id uid=10001(default) gid=0(root) groups=0(root)]
+         soffice daemon will listen on Port 8100
+PS C:\Users\mao>
+```
 
 
 
